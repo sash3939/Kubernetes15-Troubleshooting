@@ -103,11 +103,119 @@ spec:
         - while true; do curl auth-db; sleep 5; done
 ```
 
+<img width="549" alt="problem resolve" src="https://github.com/user-attachments/assets/4f9f1f31-e639-4470-9cf5-b634e9866df5">
 
+<img width="435" alt="nginx work by ip" src="https://github.com/user-attachments/assets/02296cd2-f136-4c9e-8b4e-5e5839864353">
 
 3. Исправить проблему, описать, что сделано.
+
+Решений может быть несколько:
+
+- зайти в каждый контейнер и прописать в /etc/hosts ip для auth-db;
+- переделать deployment и перенести все в один namespace;
+- для доступа к сервисам другого namespace необходимо указать этот namespace в запросе, т.е. curl должен быть таким - curl auth-db.data.
+
+```bash
+[ root@web-consumer-6ccf95f84-rngsd:/ ]$ curl auth-db.data
+<!DOCTYPE html>
+<html>
+<head>
+<title>Welcome to nginx!</title>
+<style>
+    body {
+        width: 35em;
+        margin: 0 auto;
+        font-family: Tahoma, Verdana, Arial, sans-serif;
+    }
+</style>
+</head>
+<body>
+<h1>Welcome to nginx!</h1>
+<p>If you see this page, the nginx web server is successfully installed and
+working. Further configuration is required.</p>
+
+<p>For online documentation and support please refer to
+<a href="http://nginx.org/">nginx.org</a>.<br/>
+Commercial support is available at
+<a href="http://nginx.com/">nginx.com</a>.</p>
+
+<p><em>Thank you for using nginx.</em></p>
+</body>
+</html>
+```
+
 4. Продемонстрировать, что проблема решена.
 
+Создал [deployment.yaml](https://github.com/sash3939/Kubernetes15-Troubleshooting/blob/main/deployment.yaml), где изменил только эту строчку:
+
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web-consumer
+  namespace: web
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: web-consumer
+  template:
+    metadata:
+      labels:
+        app: web-consumer
+    spec:
+      containers:
+      - command:
+        - sh
+        - -c
+        - while true; do curl auth-db.data; sleep 5; done
+        image: radial/busyboxplus:curl
+        name: busybox
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: auth-db
+  namespace: data
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: auth-db
+  template:
+    metadata:
+      labels:
+        app: auth-db
+    spec:
+      containers:
+      - image: nginx:1.19.1
+        name: nginx
+        ports:
+        - containerPort: 80
+          protocol: TCP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: auth-db
+  namespace: data
+spec:
+  ports:
+  - port: 80
+    protocol: TCP
+    targetPort: 80
+  selector:
+    app: auth-db
+```
+
+<img width="665" alt="recreate" src="https://github.com/user-attachments/assets/b6d87cf1-aef2-4dd9-9afe-73091ca20f1a">
+
+# Проверяем отсутствие ошибки:
+
+<img width="539" alt="check ns web1" src="https://github.com/user-attachments/assets/b36ee1df-07b1-42a7-a2af-b4e3bd518ef6">
+
+<img width="560" alt="check ns web2" src="https://github.com/user-attachments/assets/97796932-e926-492c-8c3e-a5eb25758e45">
 
 ### Правила приёма работы
 
